@@ -1,0 +1,108 @@
+{
+    "id": "test-config",
+    "producers": [
+        {
+            "dataset": "json-producer-ds",
+            "topic": "json-producer",
+            "createTopic": true,
+            "stripProps": true,
+            "topicSettings": {
+                "partitions": 1,
+                "replicas": 1
+            }
+        }
+    ],
+    "consumers": [
+        {
+            "dataset": "proto-consumer-ds",
+            "topic": "proto-consumer",
+            "groupId": "g1",
+            "position": "earliest",
+            "nameSpace": "peopleNamespace",
+            "valueDecoder": "protobuf",
+            "protobufSchema": {
+                "type": "testdata.Person",
+                "path": "RESOURCEPATH/protoschema",
+                "fileName": "person.proto"
+            },
+            "baseNameSpace": "http://data.example.com/persons/",
+            "entityIdConstructor": "person/%s",
+            "types": [
+                "http://data.example.com/persons/person",
+                "http://data.example.com/persons/address"
+            ],
+            "fieldMappings": [
+                {
+                    "fieldName": "name",
+                    "path": "name",
+                    "isIdField": true
+                },
+                {
+                    "fieldName": "houseNumber",
+                    "propertyName": "houseNumberRef",
+                    "path": "address.houseNumber",
+                    "isReference": true,
+                    "referenceTemplate": "http://data.example.com/houses/%v"
+                }
+            ]
+        },
+        {
+            "dataset": "avro-consumer-ds",
+            "topic": "avro-consumer",
+            "groupId": "g2",
+            "position": "earliest",
+            "nameSpace": "pet",
+            "valueDecoder": "avro",
+            "schemaRegistry": {
+                "location": "http://0.0.0.0:8081"
+            },
+            "baseNameSpace": "http://data.example.com/pets/",
+            "entityIdConstructor": "animal/%s",
+            "types": [
+                "http://data.example.com/pets/animal"
+            ],
+            "fieldMappings": [
+                {
+                    "fieldName": "name",
+                    "path": "name",
+                    "isIdField": true
+                },{
+                    "fieldName": "dead",
+                    "path": "dead",
+                    "isDeletedField": true
+                }
+            ]
+        },
+        {
+            "dataset": "json-consumer-ds",
+            "topic": "json-consumer",
+            "groupId": "g3",
+            "valueDeserializer": "json",
+            "position": "earliest",
+            "nameSpace": "places",
+            "baseNameSpace": "http://data.example.com/cities/",
+            "entityIdConstructor": "city/%s",
+            "types": [
+                "http://data.example.com/place/city"
+            ],
+            "fieldMappings": [
+                {
+                    "fieldName": "name",
+                    "path": "name",
+                    "isIdField": true
+                },
+                {
+                    "fieldName": "population",
+                    "ignoreField": true
+                },
+                {
+                    "fieldName": "postCode",
+                    "propertyName": "postCodeRef",
+                    "path": "postCode",
+                    "isReference": true,
+                    "referenceTemplate": "http://data.example.com/cities/post-code/%.0f"
+                }
+            ]
+        }
+    ]
+}

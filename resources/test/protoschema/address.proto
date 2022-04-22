@@ -1,0 +1,7 @@
+syntax = "proto3";
+package testdata;
+
+message Address {
+    string street = 1;
+    int32 house_number = 2;
+}

@@ -1,0 +1,11 @@
+{
+    "type": "record",
+    "namespace": "avrotest",
+    "name": "Cat",
+    "fields": [
+        { "name": "name", "type": "string" },
+        { "name": "kind", "type": "string" },
+        { "name": "age", "type": "int" },
+        { "name": "dead", "type": "boolean" }
+    ]
+}
