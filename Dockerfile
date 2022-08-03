@@ -8,16 +8,18 @@ RUN go mod download
 
 # Copy the source from the current directory to the Working Directory inside the container
 # Make available as separate stage for building test-runner image
-FROM builder AS src 
+FROM builder AS src
 COPY *.go ./
 COPY cmd ./cmd
 COPY internal ./internal
+COPY resources ./resources
 
 
 # Compile binary
 FROM src AS build
-RUN go vet ./...
 RUN CGO_ENABLED=1 GOOS=linux go build -a -o server cmd/kafkalayer/main.go
+RUN go vet ./...
+RUN go test ./... -v
 
 
 # Build final image
