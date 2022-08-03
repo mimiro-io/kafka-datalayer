@@ -11,3 +11,6 @@ docker:
 test:
 	go vet ./...
 	go test ./... -v
+
+integration:
+	go test ./... -v -tags=integration
