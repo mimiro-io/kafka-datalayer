@@ -1,5 +1,5 @@
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-FROM golang:1.18 as builder
+FROM golang:1.19 as builder
 RUN apt-get update && apt-get -y install docker-compose
 WORKDIR /app
 COPY go.mod go.sum ./
