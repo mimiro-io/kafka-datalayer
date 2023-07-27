@@ -3,7 +3,8 @@
     const addr = process.env.ADDR || "redpanda:29092"
     const regAddr = addr.split(":")[0]+":8081"
     console.log("addr",addr,"regAddr",regAddr)
-    const producer = new Kafka({brokers: [addr]}).producer()
+    const k = new Kafka({brokers: [addr]})
+    const producer = k.producer()
     await producer.connect()
 
     // emit protobuf sample
@@ -49,9 +50,15 @@
     })
     console.log('sending avro ', pet, '. result OK? ', sendResult[0].errorCode === 0)
 
+    const admin = k.admin({retry: {retries: 1000}})
+    await admin.connect()
+    await admin.createTopics({ topics: [ { topic: 'json-consumer', numPartitions: 4 } ] })
+    await admin.disconnect()
+    // await k.admin().createPartitions({
+    //     topicPartitions: [  { topic: 'json-consumer', count: 2 } ]
+    // })
 
-
-    // emit 11000 json samples
+    // emit 1100 json samples
     for (let i = 0; i < 1100; i++) {
         const city = {name: 'City-' + i, population: i * 1000, postCode: 3000 + i}
         const sendResult = await producer.send({

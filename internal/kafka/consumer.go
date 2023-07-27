@@ -14,10 +14,11 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
 type Consumers struct {
@@ -269,6 +270,11 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 	}
 
 	if sinceCount > 0 {
+		for p, offset := range offsets {
+			if _, ok := partitionOffsets[p]; !ok {
+				partitionOffsets[p] = offset
+			}
+		}
 		s, _ := since(partitionOffsets)
 		consumers.logger.Infof("Emitted %v msgs. offsets returned as @continuation: %+v (%+v)", sinceCount, partitionOffsets, s)
 		entity := coder.NewEntity()
