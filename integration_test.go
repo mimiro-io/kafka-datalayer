@@ -18,11 +18,12 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/franela/goblin"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/app"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/fx"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/app"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
 )
 
 type Foo struct {
@@ -89,7 +90,7 @@ func TestLayer(t *testing.T) {
 						Dockerfile: "/integration_test_producer/Dockerfile",
 					},
 					Env:        map[string]string{"ADDR": redPanda},
-					WaitingFor: wait.ForExit(),
+					WaitingFor: wait.ForExit().WithExitTimeout(30 * time.Second),
 					SkipReaper: skipReaper,
 				}, Started: true,
 			})
@@ -220,7 +221,10 @@ func TestLayer(t *testing.T) {
 		})
 		g.It("Should expose json dataset with since", func() {
 			g.Timeout(30 * time.Second)
-			resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIwIjoxMDk2fQ==")
+			resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNDd9")
+			//resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIzIjoyNTB9")
+			//resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNTB9")
+
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ := io.ReadAll(resp.Body)
@@ -231,12 +235,17 @@ func TestLayer(t *testing.T) {
 
 			var expected []map[string]interface{}
 			json.Unmarshal([]byte(`[{"id":"@context","namespaces":{"ns0":"http://data.example.com/cities/places/","rdf":"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}}
-        ,{"id":"http://data.example.com/cities/city/City-1097","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4097"},"props":{"ns0:name":"City-1097","ns0:postCode":4097}}
+        ,{"id":"http://data.example.com/cities/city/City-1091","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4091"},"props":{"ns0:name":"City-1091","ns0:postCode":4091}}
+        ,{"id":"http://data.example.com/cities/city/City-1092","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4092"},"props":{"ns0:name":"City-1092","ns0:postCode":4092}}
         ,{"id":"http://data.example.com/cities/city/City-1098","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4098"},"props":{"ns0:name":"City-1098","ns0:postCode":4098}}
-        ,{"id":"http://data.example.com/cities/city/City-1099","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4099"},"props":{"ns0:name":"City-1099","ns0:postCode":4099}}
-        ,{"id":"@continuation","token":"eyIwIjoxMDk5fQ=="}
+        ,{"id":"@continuation","token":"eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNTB9"}
         ]`), &expected)
 			g.Assert(entities).Eql(expected)
+			resp, err = http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNTB9")
+			g.Assert(err).IsNil()
+			g.Assert(resp.StatusCode).Eql(200)
+			bodyBytes, _ = io.ReadAll(resp.Body)
+			g.Assert(len(bodyBytes)).Eql(213, "topic should be empty")
 		})
 
 		g.It("Should add entity batch to dataset", func() {
