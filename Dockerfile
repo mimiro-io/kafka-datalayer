@@ -5,17 +5,6 @@ RUN apt-get update && \
     apt-get install git ca-certificates gcc -y && \
     update-ca-certificates
 
-ENV USER=appuser
-ENV UID=10001
-# See https://stackoverflow.com/a/55757473/12429735RUN
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    "${USER}"
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -36,6 +25,9 @@ RUN GOOS=linux GOARCH=amd64 go build -tags netgo --ldflags "-extldflags -static"
 # if it compiles, run unit tests
 RUN go vet ./... && go test -v ./...
 
+# let all users in group 0 run the binary
+RUN chgrp 0 server && chmod g+X server
+
 
 # Build final image
 FROM scratch AS final
@@ -43,11 +35,11 @@ FROM scratch AS final
 WORKDIR /root
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /etc/passwd /etc/passwd
-COPY --from=build /etc/group /etc/group
 COPY --from=build /app/server /root/server
 
 EXPOSE 8080
 
-USER appuser:appuser
+# set non-root user
+USER 5678
+
 CMD ["/root/server"]
