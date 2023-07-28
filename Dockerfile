@@ -1,6 +1,21 @@
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-FROM golang:1.19 as builder
-RUN apt-get update && apt-get -y install docker-compose
+FROM golang:1.20 as builder
+
+RUN apt-get update && \
+    apt-get install git ca-certificates gcc -y && \
+    update-ca-certificates
+
+ENV USER=appuser
+ENV UID=10001
+# See https://stackoverflow.com/a/55757473/12429735RUN
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    "${USER}"
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -17,23 +32,22 @@ COPY resources ./resources
 
 # Compile binary
 FROM src AS build
-RUN CGO_ENABLED=1 GOOS=linux go build -a -o server cmd/kafkalayer/main.go
-RUN go vet ./...
-RUN go test ./... -v
+RUN GOOS=linux GOARCH=amd64 go build -tags netgo --ldflags "-extldflags -static" -o server cmd/kafkalayer/main.go
+# if it compiles, run unit tests
+RUN go vet ./... && go test -v ./...
 
 
 # Build final image
-FROM alpine:latest
+FROM scratch AS final
 
-RUN apk --no-cache add ca-certificates
-RUN wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
-    wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.32-r0/glibc-2.32-r0.apk && \
-    apk add --force-overwrite glibc-2.32-r0.apk
+WORKDIR /root
 
-WORKDIR /root/
-
-COPY --from=build /app/server .
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /etc/passwd /etc/passwd
+COPY --from=build /etc/group /etc/group
+COPY --from=build /app/server /root/server
 
 EXPOSE 8080
 
-CMD ["./server"]
+USER appuser:appuser
+CMD ["/root/server"]
