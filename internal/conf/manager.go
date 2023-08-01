@@ -3,7 +3,7 @@ package conf
 import (
 	"crypto/md5"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -11,12 +11,11 @@ import (
 
 	"go.uber.org/fx"
 
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/security"
-
 	"github.com/bamzi/jobrunner"
+	"github.com/gojektech/heimdall/v6/httpclient"
 	"go.uber.org/zap"
 
-	"github.com/gojektech/heimdall/v6/httpclient"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/security"
 )
 
 type ConfigurationManager struct {
@@ -34,7 +33,7 @@ type State struct {
 	Digest    [16]byte
 }
 
-func NewConfigurationManager(lc fx.Lifecycle, env *Env, providers *security.TokenProviders) *ConfigurationManager {
+func NewConfigurationManager(_ fx.Lifecycle, env *Env, providers *security.TokenProviders) *ConfigurationManager {
 	config := &ConfigurationManager{
 		configLocation:  env.ConfigLocation,
 		refreshInterval: env.RefreshInterval,
@@ -79,12 +78,18 @@ func (conf *ConfigurationManager) load() *KafkaConfig {
 	if strings.Index(conf.configLocation, "file://") == 0 {
 		configContent, err = conf.loadFile(conf.configLocation)
 	} else if strings.Index(conf.configLocation, "http") == 0 {
-		c, err := conf.loadUrl(conf.configLocation)
-		if err != nil {
-			conf.logger.Warn("Unable to parse json into config. Error is: "+err.Error()+". Please check file: "+conf.configLocation, err)
+		c, err2 := conf.loadURL(conf.configLocation)
+		if err2 != nil {
+			conf.logger.Warn("Unable to parse json into config. Error is: "+
+				err2.Error()+". Please check file: "+conf.configLocation, err2)
 			return nil
 		}
-		configContent, err = unpackContent(c)
+		configContent, err2 = unpackContent(c)
+		if err2 != nil {
+			conf.logger.Warn("Unable to parse json into config. Error is: "+
+				err2.Error()+". Please check file: "+conf.configLocation, err2)
+			return nil
+		}
 	} else {
 		conf.logger.Errorf("Config file location not supported: %s \n", conf.configLocation)
 		configContent, _ = conf.loadFile("file://resources/default-config.json")
@@ -123,7 +128,7 @@ func (conf *ConfigurationManager) load() *KafkaConfig {
 	return conf.Datalayer
 }
 
-func (conf *ConfigurationManager) loadUrl(configEndpoint string) ([]byte, error) {
+func (conf *ConfigurationManager) loadURL(configEndpoint string) ([]byte, error) {
 	timeout := 10000 * time.Millisecond
 	client := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout), httpclient.WithRetryCount(3))
 
@@ -135,9 +140,9 @@ func (conf *ConfigurationManager) loadUrl(configEndpoint string) ([]byte, error)
 	provider, ok := conf.TokenProviders.Providers["auth0tokenprovider"]
 	if ok {
 		tokenProvider := provider.(security.TokenProvider)
-		bearer, err := tokenProvider.Token()
-		if err != nil {
-			conf.logger.Warnf("Token provider returned error: %w", err)
+		bearer, err2 := tokenProvider.Token()
+		if err2 != nil {
+			conf.logger.Warnf("Token provider returned error: %w", err2)
 		}
 		req.Header.Add("Authorization", bearer)
 	}
@@ -151,7 +156,7 @@ func (conf *ConfigurationManager) loadUrl(configEndpoint string) ([]byte, error)
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode == 200 {
-		return ioutil.ReadAll(resp.Body)
+		return io.ReadAll(resp.Body)
 	} else {
 		conf.logger.Infof("Endpoint returned %s", resp.Status)
 		return nil, err
@@ -159,7 +164,7 @@ func (conf *ConfigurationManager) loadUrl(configEndpoint string) ([]byte, error)
 }
 
 type content struct {
-	Id   string                 `json:"id"`
+	ID   string                 `json:"id"`
 	Data map[string]interface{} `json:"data"`
 }
 
@@ -172,7 +177,6 @@ func unpackContent(themBytes []byte) ([]byte, error) {
 	data := unpacked.Data
 
 	return json.Marshal(data)
-
 }
 
 func (conf *ConfigurationManager) loadFile(location string) ([]byte, error) {
@@ -184,7 +188,7 @@ func (conf *ConfigurationManager) loadFile(location string) ([]byte, error) {
 		return nil, err
 	}
 	defer configFile.Close()
-	return ioutil.ReadAll(configFile)
+	return io.ReadAll(configFile)
 }
 
 func (conf *ConfigurationManager) parse(config []byte) (*KafkaConfig, error) {

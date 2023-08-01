@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"github.com/tidwall/gjson"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
 type EntityEncoder struct {
@@ -24,8 +26,8 @@ func NewEntityEncoder(config *conf.ConsumerConfig) EntityEncoder {
 	return EntityEncoder{config: config, columns: columns}
 }
 
-func (encoder EntityEncoder) Encode(kkey []byte, data []byte) *Entity {
-	entity := NewEntity()
+func (encoder EntityEncoder) Encode(kkey []byte, data []byte) *egdm.Entity {
+	entity := egdm.NewEntity()
 
 	js := string(data)
 	key := string(kkey)
@@ -40,8 +42,9 @@ func (encoder EntityEncoder) Encode(kkey []byte, data []byte) *Entity {
 
 	return entity
 }
-func (encoder EntityEncoder) EncodeWithHeaders(kkey []byte, data []byte, kafkaHeaders []kafka.Header) *Entity {
-	entity := NewEntity()
+
+func (encoder EntityEncoder) EncodeWithHeaders(kkey []byte, data []byte, kafkaHeaders []kafka.Header) *egdm.Entity {
+	entity := egdm.NewEntity()
 
 	js := string(data)
 	key := string(kkey)
@@ -59,14 +62,14 @@ func (encoder EntityEncoder) EncodeWithHeaders(kkey []byte, data []byte, kafkaHe
 	}
 	headerData, _ := json.Marshal(headers)
 	hd := string(headerData)
-	//add the headers to the entity
+	// add the headers to the entity
 	for k, v := range headers {
 		encoder.flatten("kafka_header.", k, v, hd, entity, key)
 	}
 	return entity
 }
 
-func (encoder EntityEncoder) flatten(prefix string, k string, v interface{}, js string, entity *Entity, key string) {
+func (encoder EntityEncoder) flatten(prefix string, k string, v interface{}, js string, entity *egdm.Entity, key string) {
 	switch val := v.(type) {
 	case map[string]interface{}:
 		for k2, v2 := range val {
@@ -119,11 +122,11 @@ func (encoder EntityEncoder) flatten(prefix string, k string, v interface{}, js 
 			}
 
 			value := gjson.Get(js, mapping.Path)
-			if mapping.IsIdField {
+			if mapping.IsIDField {
 				if mapping.Path == "kafkaKey" {
-					entity.ID = encoder.config.BaseNameSpace + fmt.Sprintf(encoder.config.EntityIdConstructor, key)
+					entity.ID = encoder.config.BaseNameSpace + fmt.Sprintf(encoder.config.EntityIDConstructor, key)
 				} else {
-					entity.ID = encoder.config.BaseNameSpace + fmt.Sprintf(encoder.config.EntityIdConstructor, value.Value())
+					entity.ID = encoder.config.BaseNameSpace + fmt.Sprintf(encoder.config.EntityIDConstructor, value.Value())
 					entity.Properties[fieldName] = v
 				}
 			} else if mapping.IsDeletedField {
@@ -139,5 +142,4 @@ func (encoder EntityEncoder) flatten(prefix string, k string, v interface{}, js 
 			entity.Properties[fieldName] = v
 		}
 	}
-
 }

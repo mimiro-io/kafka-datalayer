@@ -2,10 +2,12 @@ package app
 
 import (
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
+
+	"go.uber.org/fx"
+
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/kafka"
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/security"
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/web"
-	"go.uber.org/fx"
 )
 
 func Wire() *fx.App {

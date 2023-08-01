@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -18,19 +17,18 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/franela/goblin"
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/fx"
 
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/app"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
 )
 
-type Foo struct {
-}
+type Foo struct{}
 
 func (f Foo) Accept(log testcontainers.Log) {
-	os.Stderr.WriteString(fmt.Sprintf("%s\n", log.Content))
+	fmt.Fprintf(os.Stderr, "%s\n", log.Content)
 }
 
 func TestLayer(t *testing.T) {
@@ -60,15 +58,17 @@ func TestLayer(t *testing.T) {
 				ContainerRequest: testcontainers.ContainerRequest{
 					Image:        "docker.vectorized.io/vectorized/redpanda",
 					ExposedPorts: []string{"9092:9092", "8081:8081", "29092:29092"},
-					Cmd: []string{"redpanda", "start", "--smp", "1", "--reserve-memory", "0M", "--overprovisioned",
+					Cmd: []string{
+						"redpanda", "start", "--smp", "1", "--reserve-memory", "0M", "--overprovisioned",
 						"--node-id", "0",
 						"--kafka-addr", "PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092",
 						"--advertise-kafka-addr", "PLAINTEXT://" + addr + ":29092,OUTSIDE://" + addr + ":9092",
 					},
-					//NetworkMode: "host",
+					// NetworkMode: "host",
 					SkipReaper: skipReaper,
 					WaitingFor: wait.ForLog("Redpanda!").WithStartupTimeout(time.Minute * 1),
-				}, Started: true}
+				}, Started: true,
+			}
 			t.Log(r.Cmd)
 			kafkaContainer, err = testcontainers.GenericContainer(context.Background(), r)
 
@@ -77,11 +77,11 @@ func TestLayer(t *testing.T) {
 				t.FailNow()
 			}
 
-			//kafkaContainer.FollowOutput(Foo{})
-			//kafkaContainer.StartLogProducer(context.Background())
+			// kafkaContainer.FollowOutput(Foo{})
+			// kafkaContainer.StartLogProducer(context.Background())
 
 			redPanda = fmt.Sprintf("%v:%v", addr, 9092)
-			//t.Log(redPanda)
+			// t.Log(redPanda)
 
 			_, err = testcontainers.GenericContainer(context.Background(), testcontainers.GenericContainerRequest{
 				ContainerRequest: testcontainers.ContainerRequest{
@@ -94,8 +94,8 @@ func TestLayer(t *testing.T) {
 					SkipReaper: skipReaper,
 				}, Started: true,
 			})
-			//extProducer.FollowOutput(Foo{})
-			//extProducer.StartLogProducer(context.Background())
+			// extProducer.FollowOutput(Foo{})
+			// extProducer.StartLogProducer(context.Background())
 			if err != nil {
 				t.Errorf("Failed when testcontainers: %v", err)
 				t.FailNow()
@@ -135,9 +135,9 @@ func TestLayer(t *testing.T) {
 			res, err := http.Get(layerUrl)
 			g.Assert(err).IsNil()
 			g.Assert(res).IsNotZero()
-			bodyBytes, _ := ioutil.ReadAll(res.Body)
+			bodyBytes, _ := io.ReadAll(res.Body)
 			body := string(bodyBytes)
-			//t.Log(body)
+			// t.Log(body)
 			g.Assert(strings.Contains(body, "{\"name\":\"json-producer-ds\",\"type\":[\"POST\"]}")).IsTrue()
 			g.Assert(strings.Contains(body, "{\"name\":\"json-consumer-ds\",\"type\":[\"GET\"]}")).IsTrue()
 			g.Assert(strings.Contains(body, "{\"name\":\"proto-consumer-ds\",\"type\":[\"GET\"]}")).IsTrue()
@@ -149,7 +149,7 @@ func TestLayer(t *testing.T) {
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			//t.Log(string(bodyBytes))
+			// t.Log(string(bodyBytes))
 			var entities []map[string]interface{}
 			err = json.Unmarshal(bodyBytes, &entities)
 			g.Assert(err).IsNil()
@@ -157,7 +157,7 @@ func TestLayer(t *testing.T) {
 			var expected []map[string]interface{}
 			json.Unmarshal([]byte(`[
 				 {"id":"@context","namespaces":{"ns0":"http://data.example.com/persons/peopleNamespace/","rdf":"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}}
-				,{"id":"http://data.example.com/persons/person/test","deleted":false,"props":{
+				,{"id":"http://data.example.com/persons/person/test","props":{
 					"ns0:address.houseNumber":601,
 					"ns0:address.street":"Tøyengata",
 					"ns0:age":2,
@@ -178,25 +178,32 @@ func TestLayer(t *testing.T) {
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			//t.Log(string(bodyBytes))
+			// t.Log(string(bodyBytes))
 			var entities []map[string]interface{}
 			err = json.Unmarshal(bodyBytes, &entities)
 			g.Assert(err).IsNil()
 
 			var expected []map[string]interface{}
 			json.Unmarshal([]byte(`[{"id":"@context","namespaces":{"ns0":"http://data.example.com/pets/pet/","rdf":"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}}
-                ,{"id":"http://data.example.com/pets/animal/Bob","deleted":true,"props":{"ns0:age":3,"ns0:kind":"Cat","ns0:name":"Bob"}}
+                ,{"id":"http://data.example.com/pets/animal/Bob","deleted":true,"props":{"ns0:age":3,"ns0:kind":"Cat","ns0:name":"Bob"},"refs":{}}
                 ,{"id":"@continuation","token":"eyIwIjowfQ=="}
             ]`), &expected)
 			g.Assert(entities).Eql(expected)
 		})
-		g.It("Should expose json dataset", func() {
+		g.It("Should expose complete json dataset", func() {
 			g.Timeout(30 * time.Second)
 			resp, err := http.Get(layerUrl + "/json-consumer-ds/entities")
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			g.Assert(len(bodyBytes)).Eql(217965, "no limit or since parameters should yield all 11000 entities")
+			arr := []map[string]interface{}{}
+			err = json.Unmarshal(bodyBytes, &arr)
+			g.Assert(err).IsNil()
+			//for _, l := range arr {
+			//fmt.Println(l)
+			//}
+			g.Assert(len(arr)).Eql(1102)
+			g.Assert(len(bodyBytes)).Eql(200393, "no limit or since parameters should yield all 11000 entities")
 		})
 
 		g.It("Should expose json dataset with limit", func() {
@@ -205,16 +212,16 @@ func TestLayer(t *testing.T) {
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			//t.Log(string(bodyBytes))
+			// t.Log(string(bodyBytes))
 			var entities []map[string]interface{}
 			err = json.Unmarshal(bodyBytes, &entities)
 			g.Assert(err).IsNil()
 
 			var expected []map[string]interface{}
 			json.Unmarshal([]byte(`[{"id":"@context","namespaces":{"ns0":"http://data.example.com/cities/places/","rdf":"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}}
-        ,{"id":"http://data.example.com/cities/city/City-0","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3000"},"props":{"ns0:name":"City-0","ns0:postCode":3000}}
-        ,{"id":"http://data.example.com/cities/city/City-1","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3001"},"props":{"ns0:name":"City-1","ns0:postCode":3001}}
-        ,{"id":"http://data.example.com/cities/city/City-2","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3002"},"props":{"ns0:name":"City-2","ns0:postCode":3002}}
+        ,{"id":"http://data.example.com/cities/city/City-0","refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3000"},"props":{"ns0:name":"City-0","ns0:postCode":3000}}
+        ,{"id":"http://data.example.com/cities/city/City-5","refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3005"},"props":{"ns0:name":"City-5","ns0:postCode":3005}}
+        ,{"id":"http://data.example.com/cities/city/City-6","refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3006"},"props":{"ns0:name":"City-6","ns0:postCode":3006}}
         ,{"id":"@continuation","token":"eyIwIjoyfQ=="}
         ]`), &expected)
 			g.Assert(entities).Eql(expected)
@@ -222,22 +229,22 @@ func TestLayer(t *testing.T) {
 		g.It("Should expose json dataset with since", func() {
 			g.Timeout(30 * time.Second)
 			resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNDd9")
-			//resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIzIjoyNTB9")
-			//resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNTB9")
+			// resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIzIjoyNTB9")
+			// resp, err := http.Get(layerUrl + "/json-consumer-ds/entities?since=eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNTB9")
 
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			//t.Log(string(bodyBytes))
+			// t.Log(string(bodyBytes))
 			var entities []map[string]interface{}
 			err = json.Unmarshal(bodyBytes, &entities)
 			g.Assert(err).IsNil()
 
 			var expected []map[string]interface{}
 			json.Unmarshal([]byte(`[{"id":"@context","namespaces":{"ns0":"http://data.example.com/cities/places/","rdf":"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}}
-        ,{"id":"http://data.example.com/cities/city/City-1091","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4091"},"props":{"ns0:name":"City-1091","ns0:postCode":4091}}
-        ,{"id":"http://data.example.com/cities/city/City-1092","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4092"},"props":{"ns0:name":"City-1092","ns0:postCode":4092}}
-        ,{"id":"http://data.example.com/cities/city/City-1098","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4098"},"props":{"ns0:name":"City-1098","ns0:postCode":4098}}
+        ,{"id":"http://data.example.com/cities/city/City-1091","refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4091"},"props":{"ns0:name":"City-1091","ns0:postCode":4091}}
+        ,{"id":"http://data.example.com/cities/city/City-1092","refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4092"},"props":{"ns0:name":"City-1092","ns0:postCode":4092}}
+        ,{"id":"http://data.example.com/cities/city/City-1098","refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/4098"},"props":{"ns0:name":"City-1098","ns0:postCode":4098}}
         ,{"id":"@continuation","token":"eyIwIjozMDEsIjEiOjI5NSwiMiI6MjUwLCIzIjoyNTB9"}
         ]`), &expected)
 			g.Assert(entities).Eql(expected)
@@ -245,23 +252,35 @@ func TestLayer(t *testing.T) {
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ = io.ReadAll(resp.Body)
+			fmt.Println(string(bodyBytes))
 			g.Assert(len(bodyBytes)).Eql(213, "topic should be empty")
 		})
 
 		g.It("Should add entity batch to dataset", func() {
 			g.Timeout(30 * time.Second)
-			input := []coder.Entity{{ID: "@context", Context: map[string]interface{}{"ns0": "http://test"}},
-				{ID: "ns0:howdy",
+			input := []*egdm.Entity{
+				{
+					ID:         "ns0:howdy",
 					References: map[string]interface{}{"ns0:type": "ns0:greeting"},
-					Properties: map[string]interface{}{"ns0:line": "How are all y'all doing!"}},
-				{ID: "ns0:hi",
+					Properties: map[string]interface{}{"ns0:line": "How are all y'all doing!"},
+				},
+				{
+					ID:         "ns0:hi",
 					References: map[string]interface{}{"ns0:type": "ns0:greeting"},
-					Properties: map[string]interface{}{"ns0:line": "Hi!"}},
-				{ID: "ns0:hello",
+					Properties: map[string]interface{}{"ns0:line": "Hi!"},
+				},
+				{
+					ID:         "ns0:hello",
 					References: map[string]interface{}{"ns0:type": "ns0:greeting"},
-					Properties: map[string]interface{}{"ns0:line": "Hello there!"}}}
+					Properties: map[string]interface{}{"ns0:line": "Hello there!"},
+				},
+			}
 			b, err := json.Marshal(input)
 			g.Assert(err).IsNil()
+			ctx, err := json.Marshal(map[string]any{"id": "@context", "namespaces": map[string]interface{}{"ns0": "http://test/"}})
+			g.Assert(err).IsNil()
+			s := strings.ReplaceAll(string(b), "[", ("[" + string(ctx) + ","))
+			b = []byte(s)
 			resp, err := http.Post(layerUrl+"/json-producer-ds/entities", "application/json", bytes.NewReader(b))
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
@@ -271,22 +290,21 @@ func TestLayer(t *testing.T) {
 			g.Assert(receivedMessages[0].Value).Eql([]byte(`{"deleted":false,"id":"howdy","props":{"line":"How are all y'all doing!"}}`))
 			g.Assert(receivedMessages[1].Value).Eql([]byte(`{"deleted":false,"id":"hi","props":{"line":"Hi!"}}`))
 			g.Assert(receivedMessages[2].Value).Eql([]byte(`{"deleted":false,"id":"hello","props":{"line":"Hello there!"}}`))
-
 		})
 	})
 }
 
 func patchTestConfig(testPath string, addr string) {
 	origPath := path.Join(testPath, "/test-config.json")
-	input, err := ioutil.ReadFile(origPath)
+	input, err := os.ReadFile(origPath)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	output := bytes.Replace(input, []byte("RESOURCEPATH"), []byte(testPath), -1)
-	output = bytes.Replace(output, []byte("0.0.0.0"), []byte(addr), -1)
+	output := bytes.ReplaceAll(input, []byte("RESOURCEPATH"), []byte(testPath))
+	output = bytes.ReplaceAll(output, []byte("0.0.0.0"), []byte(addr))
 
-	if err = ioutil.WriteFile("/tmp/test-config-patched.json", output, 0666); err != nil {
+	if err = os.WriteFile("/tmp/test-config-patched.json", output, 0o666); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -295,7 +313,8 @@ func readTopic(g *goblin.G, topic string, addr string) []*kafka.Message {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": addr,
 		"group.id":          "foo",
-		"auto.offset.reset": "smallest"})
+		"auto.offset.reset": "smallest",
+	})
 	defer consumer.Close()
 	g.Assert(err).IsNil()
 	err = consumer.Subscribe(topic, nil)
@@ -313,9 +332,9 @@ func readTopic(g *goblin.G, topic string, addr string) []*kafka.Message {
 			fmt.Printf("%% Reached %v\n", e)
 		case kafka.Error:
 			fmt.Fprintf(os.Stderr, "%% Error: %v\n", e)
-			//run = false
+			// run = false
 		default:
-			//fmt.Printf("Ignored %v\n", e)
+			// fmt.Printf("Ignored %v\n", e)
 			if hasRead {
 				run = false
 			}

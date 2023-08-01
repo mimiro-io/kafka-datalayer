@@ -14,6 +14,7 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
@@ -60,7 +61,7 @@ func NewConsumers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManage
 	}
 	config.adminClient = a
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(_ context.Context) error {
 			config.logger.Info("Registering Kafka consumers")
 			config.logger.Info(env.KafkaBrokers)
 			for _, c := range mngr.Datalayer.Consumers {
@@ -109,7 +110,7 @@ func (consumers *Consumers) GetContext(datasetName string) map[string]interface{
 	return ctx
 }
 
-func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*coder.Entity)) error {
+func (consumers *Consumers) ChangeSet(request DatasetRequest, onEntity func(*egdm.Entity) error, onContinuation func(*egdm.Continuation) error) error {
 	config := consumers.config(request.DatasetName)
 	if config == nil {
 		return errors.New("config has disappeared, bad mojo")
@@ -121,7 +122,7 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 	}
 
 	// so we should not need to lock anything here, there should be no 2 requests at the same time
-	topicGroup := fmt.Sprintf("%s-%s", config.Topic, config.GroupId)
+	topicGroup := fmt.Sprintf("%s-%s", config.Topic, config.GroupID)
 	if cons, ok := consumers.running[topicGroup]; ok {
 		// so, this means something is still running, so cancel it, and reset
 		cons.cancel()
@@ -132,10 +133,11 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  strings.Join(consumers.bootstrapServers, ","),
-		"group.id":           config.GroupId,
+		"group.id":           config.GroupID,
 		"enable.auto.commit": false,
 		"session.timeout.ms": 6000,
-		"auto.offset.reset":  "earliest"})
+		"auto.offset.reset":  "earliest",
+	})
 	if err != nil {
 		return err
 	}
@@ -200,7 +202,7 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 	encoder := coder.NewEntityEncoder(config)
 	isBeginning := true
 
-	for run == true {
+	for run {
 		select {
 		case <-ctx.Done():
 			consumers.logger.Debug("Terminating poll loop")
@@ -224,14 +226,18 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 					state.cancel()
 				}
 
-				var entity *coder.Entity
-				var includeHeaders = &config.IncludeHeaders
+				var entity *egdm.Entity
+				includeHeaders := &config.IncludeHeaders
 				if *includeHeaders {
 					entity = encoder.EncodeWithHeaders(e.Key, value, e.Headers)
 				} else {
 					entity = encoder.Encode(e.Key, value)
 				}
-				callBack(entity)
+				err = onEntity(entity)
+				if err != nil {
+					consumers.logger.Warn(err)
+					state.cancel()
+				}
 				if request.Limit > -1 && count >= request.Limit {
 					consumers.logger.Debugf("reached requested limit of %v. stop poll loop", count)
 					run = false
@@ -266,7 +272,6 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 				}
 			}
 		}
-
 	}
 
 	if sinceCount > 0 {
@@ -277,22 +282,29 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 		}
 		s, _ := since(partitionOffsets)
 		consumers.logger.Infof("Emitted %v msgs. offsets returned as @continuation: %+v (%+v)", sinceCount, partitionOffsets, s)
-		entity := coder.NewEntity()
-		entity.ID = "@continuation"
-		entity.Properties["token"] = s
-
-		callBack(entity)
+		continuation := egdm.NewContinuation()
+		continuation.Token = s
+		err := onContinuation(continuation)
+		if err != nil {
+			consumers.logger.Errorf("could not write @continuation: %+v", err)
+			state.cancel()
+			return err
+		}
 	} else {
 		if request.Since != "" {
 			// there are no records, but we have since token, so just return that
 			consumers.logger.Infof("nothing new found. returning since as @continuation: %+v", request.Since)
-			entity := coder.NewEntity()
-			entity.ID = "@continuation"
-			entity.Properties["token"] = request.Since
-			callBack(entity)
+			cont := egdm.NewContinuation()
+			cont.Token = request.Since
+			err := onContinuation(cont)
+			if err != nil {
+				consumers.logger.Errorf("could not write @continuation: %+v", err)
+				state.cancel()
+				return err
+			}
 		}
 	}
-	//consumers.logger.Info(partitionOffsets)
+	// consumers.logger.Info(partitionOffsets)
 	return nil
 }
 
@@ -361,5 +373,5 @@ func decodeSince(since string) map[int32]int64 {
 		return paritionOffsets
 	}
 	return paritionOffsets
-
 }
+

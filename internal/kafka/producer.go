@@ -10,11 +10,12 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/hashicorp/go-uuid"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 	kgo "github.com/segmentio/kafka-go"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
 type Producers struct {
@@ -37,7 +38,7 @@ func NewProducers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManage
 		statsd:           statsd,
 	}
 
-	onUpdate := func(digest [16]byte) {
+	onUpdate := func(_ [16]byte) {
 		err := producers.initTopics(mngr.Datalayer.Producers)
 		if err != nil {
 			producers.log.Warn(err)
@@ -51,14 +52,14 @@ func NewProducers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManage
 	producers.adminClient = a
 
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(_ context.Context) error {
 			mngr.AddConfigUpdateListener(onUpdate)
 			if mngr.Datalayer.Producers != nil && len(mngr.Datalayer.Producers) > 0 {
 				return producers.initTopics(mngr.Datalayer.Producers)
 			}
 			return nil
 		},
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(_ context.Context) error {
 			producers.log.Info("Stopping admin client")
 			a.Close()
 			return nil
@@ -81,7 +82,20 @@ func (producers *Producers) DoesDatasetExist(datasetName string) bool {
 	return false
 }
 
-func (producers *Producers) ProduceEntities(datasetName string, ctx *coder.Context, entities []*coder.Entity) error {
+func stripProps(entity *egdm.Entity) ([]byte, error) {
+	stripped := make(map[string]interface{})
+	stripped["id"] = strings.SplitAfter(entity.ID, ":")[1]
+	stripped["deleted"] = entity.IsDeleted
+
+	singleMap := make(map[string]interface{})
+	for e := range entity.Properties {
+		singleMap[strings.SplitAfter(e, ":")[1]] = entity.Properties[e]
+	}
+	stripped["props"] = singleMap
+	return json.Marshal(stripped)
+}
+
+func (producers *Producers) ProduceEntities(datasetName string, entities []*egdm.Entity) error {
 	config := producers.configForDataset(datasetName)
 
 	var w *kgo.Writer
@@ -105,13 +119,12 @@ func (producers *Producers) ProduceEntities(datasetName string, ctx *coder.Conte
 	for i, entity := range entities {
 		var themBytes []byte
 		if config.StripProps {
-			raw, err := entity.StripProps()
+			raw, err := stripProps(entity)
 			if err != nil {
 				return err
 			}
 			themBytes = raw
 		} else {
-			entity.Context = ctx.Namespaces
 			raw, err := json.Marshal(entity)
 			if err != nil {
 				return err
@@ -127,7 +140,7 @@ func (producers *Producers) ProduceEntities(datasetName string, ctx *coder.Conte
 	return w.WriteMessages(context.Background(), data...)
 }
 
-func (producers *Producers) determineKey(entity *coder.Entity, config *conf.ProducerConfig) []byte {
+func (producers *Producers) determineKey(entity *egdm.Entity, config *conf.ProducerConfig) []byte {
 	if config.Key == nil {
 		return nil
 	}
@@ -152,7 +165,6 @@ func (producers *Producers) configForDataset(datasetName string) *conf.ProducerC
 }
 
 func (producers *Producers) initTopics(config []conf.ProducerConfig) error {
-
 	specs := make([]kafka.TopicSpecification, 0)
 	for _, c := range config {
 		producers.log.Info("Verifying topic -> " + c.Topic)

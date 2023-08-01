@@ -5,7 +5,6 @@ go 1.19
 require (
 	github.com/DataDog/datadog-go/v5 v5.3.0
 	github.com/bamzi/jobrunner v1.0.0
-	github.com/bcicen/jstream v1.0.1
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/containerd/containerd v1.6.19 // indirect
 	github.com/franela/goblin v0.0.0-20211003143422-0a4f594942bf
@@ -20,10 +19,12 @@ require (
 	github.com/segmentio/kafka-go v0.4.42
 	github.com/spf13/viper v1.16.0
 	github.com/testcontainers/testcontainers-go v0.21.0
-	github.com/tidwall/gjson v1.14.4
+	github.com/tidwall/gjson v1.15.0
 	go.uber.org/fx v1.20.0
 	go.uber.org/zap v1.24.0
 )
+
+require github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801102005-7d4677d4aede
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

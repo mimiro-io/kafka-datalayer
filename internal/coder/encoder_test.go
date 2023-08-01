@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/franela/goblin"
+	egdm "github.com/mimiro-io/entity-graph-data-model"
+
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
@@ -12,13 +14,13 @@ func TestEncoder(t *testing.T) {
 	g.Describe("The Entity encoder", func() {
 		enc := NewEntityEncoder(&conf.ConsumerConfig{
 			BaseNameSpace:       "test_ns/people/",
-			EntityIdConstructor: "mainId/%v.json",
+			EntityIDConstructor: "mainId/%v.json",
 			FieldMappings: []*conf.FieldMapping{
 				{
 					Path:         "idkey",
 					FieldName:    "idkey",
 					PropertyName: "idkeyprop",
-					IsIdField:    true,
+					IsIDField:    true,
 				}, {
 					Path:         "mappedkey",
 					FieldName:    "mappedkey",
@@ -40,11 +42,13 @@ func TestEncoder(t *testing.T) {
 					IsReference:       true,
 					ReferenceTemplate: "http://bar/%v",
 					IgnoreField:       true,
-				}},
+				},
+			},
 		})
-		emptyEntity := Entity{
+		emptyEntity := egdm.Entity{
 			References: map[string]interface{}{},
-			Properties: map[string]interface{}{}}
+			Properties: map[string]interface{}{},
+		}
 		g.Describe("Encode", func() {
 			g.It("Should encode primitives", func() {
 				res := enc.Encode([]byte("kafkakey1"), []byte(`"hello"`))

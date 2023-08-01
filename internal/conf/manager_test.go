@@ -8,12 +8,12 @@ import (
 	"path"
 	"testing"
 
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/security"
 	"go.uber.org/zap"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/security"
 )
 
 func TestLoadFile(t *testing.T) {
-
 	cmgr := ConfigurationManager{
 		logger: zap.NewNop().Sugar(),
 	}
@@ -26,7 +26,6 @@ func TestLoadFile(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	}
-
 }
 
 func TestLoadUrl(t *testing.T) {
@@ -38,7 +37,7 @@ func TestLoadUrl(t *testing.T) {
 		TokenProviders: security.NoOpTokenProviders(),
 	}
 
-	_, err := cmgr.loadUrl(fmt.Sprintf("%s/test/config.json", srv.URL))
+	_, err := cmgr.loadURL(fmt.Sprintf("%s/test/config.json", srv.URL))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -67,7 +66,6 @@ func TestParse(t *testing.T) {
 	if config.Producers[0].Topic != "json-producer" {
 		t.Errorf("%s != json-producer", config.Producers[0].Topic)
 	}
-
 }
 
 func serverMock() *httptest.Server {
@@ -91,3 +89,4 @@ func configMock(w http.ResponseWriter, r *http.Request) {
 	res, _ := cmgr.loadFile("file://" + path.Join(resourcesTestPath, "/test-config.json"))
 	_, _ = w.Write(res)
 }
+
