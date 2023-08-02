@@ -95,17 +95,15 @@ func stripProps(entity *egdm.Entity) ([]byte, error) {
 	return json.Marshal(stripped)
 }
 
-func (producers *Producers) ProduceEntities(datasetName string, entities []*egdm.Entity) error {
-	config := producers.configForDataset(datasetName)
-
+func (producers *Producers) ProduceEntities(config *conf.ProducerConfig, entities []*egdm.Entity) error {
 	var w *kgo.Writer
-	if prod, ok := producers.producers[datasetName]; !ok {
+	if prod, ok := producers.producers[config.Dataset]; !ok {
 		w = &kgo.Writer{
 			Addr:     kgo.TCP(producers.bootstrapServers...),
 			Topic:    config.Topic,
 			Balancer: kgo.Murmur2Balancer{},
 		}
-		producers.producers[datasetName] = w
+		producers.producers[config.Dataset] = w
 	} else {
 		w = prod
 	}
@@ -155,7 +153,7 @@ func (producers *Producers) determineKey(entity *egdm.Entity, config *conf.Produ
 	}
 }
 
-func (producers *Producers) configForDataset(datasetName string) *conf.ProducerConfig {
+func (producers *Producers) ConfigForDataset(datasetName string) *conf.ProducerConfig {
 	for _, c := range producers.mngr.Datalayer.Producers {
 		if c.Dataset == datasetName {
 			return &c

@@ -277,6 +277,8 @@ github.com/mattn/go-isatty v0.0.19/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D
 github.com/mattn/goveralls v0.0.6/go.mod h1:h8b4ow6FxSPMQHF6o2ve3qsclnffZjYTNEKmLesRwqw=
 github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801102005-7d4677d4aede h1:z5fww5w3cdYCLxrOIO1A+i/DPNvgyrYWl0/29VsNkqI=
 github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801102005-7d4677d4aede/go.mod h1:A8mcR2hTwAHwK7+kUpZqS1KyKc9hWFwx6o64tp6wM20=
+github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801135044-2b25f4421cc4 h1:fHon7fw+B0ht4+RqfYFbgWJhCUEH18auDvGp3FjP9EY=
+github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801135044-2b25f4421cc4/go.mod h1:A8mcR2hTwAHwK7+kUpZqS1KyKc9hWFwx6o64tp6wM20=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/moby/patternmatcher v0.5.0 h1:YCZgJOeULcxLw1Q+sVR636pmS7sPEn1Qo2iAN6M7DBo=

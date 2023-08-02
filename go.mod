@@ -24,7 +24,7 @@ require (
 	go.uber.org/zap v1.24.0
 )
 
-require github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801102005-7d4677d4aede
+require github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801135044-2b25f4421cc4
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

@@ -37,6 +37,10 @@ func NewProducerHandler(lc fx.Lifecycle, e *echo.Echo, logger *zap.SugaredLogger
 
 func (ph *producerHandler) produce(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
+	config := ph.producers.ConfigForDataset(datasetName)
+	if config == nil {
+		return echo.NewHTTPError(http.StatusNotFound, errors.New("dataset not found").Error())
+	}
 
 	// parse it
 	batchSize := 10000
@@ -44,7 +48,12 @@ func (ph *producerHandler) produce(c echo.Context) error {
 
 	entities := make([]*egdm.Entity, 0)
 
-	parser := egdm.NewEntityParser(egdm.NewNamespaceContext(), true, false, false)
+	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
+	// if stripProps is enabled, the producers service will strip all namespace prefixes from the properties
+	if !config.StripProps {
+		// if it is NOT enabled, we will expand all namespace prefixes in the entity parser
+		parser = parser.WithExpandURIs()
+	}
 	err := parser.Parse(c.Request().Body, func(entity *egdm.Entity) error {
 		entities = append(entities, entity)
 		read++
@@ -52,7 +61,7 @@ func (ph *producerHandler) produce(c echo.Context) error {
 			read = 0
 
 			// do stuff with entities
-			err2 := ph.producers.ProduceEntities(datasetName, entities)
+			err2 := ph.producers.ProduceEntities(config, entities)
 			if err2 != nil {
 				return err2
 			}
@@ -67,7 +76,7 @@ func (ph *producerHandler) produce(c echo.Context) error {
 
 	if read > 0 {
 		// do stuff with leftover entities
-		err = ph.producers.ProduceEntities(datasetName, entities)
+		err = ph.producers.ProduceEntities(config, entities)
 		if err != nil {
 			ph.log.Warn(err)
 			return echo.NewHTTPError(http.StatusBadRequest, errors.New("could not parse the json payload").Error())
