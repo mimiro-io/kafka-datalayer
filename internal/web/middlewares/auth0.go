@@ -3,10 +3,11 @@ package middlewares
 import (
 	"encoding/json"
 	"errors"
-	"github.com/golang-jwt/jwt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt"
 
 	"github.com/goburrow/cache"
 	"github.com/labstack/echo/v4"
@@ -72,7 +73,7 @@ func newCache(wellknown string) cache.LoadingCache {
 
 		defer resp.Body.Close()
 
-		var jwks = Jwks{}
+		jwks := Jwks{}
 		err = json.NewDecoder(resp.Body).Decode(&jwks)
 
 		return jwks, err
@@ -173,7 +174,6 @@ func (config *Auth0Config) SigningKey() func(token *jwt.Token) string {
 func getPemCert(token *jwt.Token, config *Auth0Config) (string, error) {
 	cert := ""
 	result, err := config.Cache.Get("well-known")
-
 	if err != nil {
 		return cert, err
 	}
@@ -196,7 +196,6 @@ func getPemCert(token *jwt.Token, config *Auth0Config) (string, error) {
 		err := errors.New("No Jwks returned")
 		return cert, err
 	}
-
 }
 
 func extractToken(c echo.Context) (string, error) {

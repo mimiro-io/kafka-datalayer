@@ -29,12 +29,11 @@ func NewDatasetHandler(lc fx.Lifecycle, e *echo.Echo, logger *zap.SugaredLogger,
 	}
 
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(_ context.Context) error {
 			e.GET("/datasets", dh.listDatasetsHandler, mw.authorizer(log, "datahub:r"))
 			return nil
 		},
 	})
-
 }
 
 // listDatasetsHandler

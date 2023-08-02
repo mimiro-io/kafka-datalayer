@@ -1,10 +1,11 @@
 package conf
 
 import (
+	"strings"
+
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"strings"
 )
 
 func NewLogger(env *Env) *zap.SugaredLogger {

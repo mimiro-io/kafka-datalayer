@@ -8,10 +8,11 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/kafka"
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/kafka"
 )
 
 type consumerHandler struct {
@@ -27,14 +28,13 @@ func NewConsumerHandler(lc fx.Lifecycle, e *echo.Echo, logger *zap.SugaredLogger
 		consumers: consumers,
 	}
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(_ context.Context) error {
 			e.GET("/datasets/:dataset/entities", handler.consume, mw.authorizer(log, "datahub:r"))
 			e.GET("/datasets/:dataset/changes", handler.consume, mw.authorizer(log, "datahub:r"))
 
 			return nil
 		},
 	})
-
 }
 
 func (handler *consumerHandler) consume(c echo.Context) error {
@@ -56,7 +56,10 @@ func (handler *consumerHandler) consume(c echo.Context) error {
 	c.Response().WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(c.Response())
 
-	c.Response().Write([]byte("["))
+	_, err2 := c.Response().Write([]byte("["))
+	if err2 != nil {
+		return err2
+	}
 
 	// make and send context as the first object
 	ctx := handler.consumers.GetContext(datasetName)
@@ -68,27 +71,38 @@ func (handler *consumerHandler) consume(c echo.Context) error {
 		Since:       since,
 		Limit:       l,
 	}
-	err := handler.consumers.ChangeSet(request, func(entity *coder.Entity) {
-		if entity.ID == "@continuation" { // it is returned as a normal entity, and we need to flatten it to the token format
-			cont := map[string]interface{}{
-				"id":    "@continuation",
-				"token": entity.Properties["token"],
-			}
-			c.Response().Write([]byte(","))
-			_ = enc.Encode(cont)
-			c.Response().Flush()
-		} else {
-			c.Response().Write([]byte(","))
-			_ = enc.Encode(entity)
-			c.Response().Flush()
+	err := handler.consumers.ChangeSet(request, func(entity *egdm.Entity) error {
+		_, err := c.Response().Write([]byte(","))
+		if err != nil {
+			return err
 		}
+		err = enc.Encode(entity)
+		if err != nil {
+			return err
+		}
+		c.Response().Flush()
+		return nil
+	}, func(continuation *egdm.Continuation) error {
+		_, err := c.Response().Write([]byte(","))
+		if err != nil {
+			return err
+		}
+		err = enc.Encode(continuation)
+		if err != nil {
+			return err
+		}
+		c.Response().Flush()
+		return nil
 	})
-
 	if err != nil {
 		handler.logger.Warn(err)
 	}
 
-	c.Response().Write([]byte("]"))
+	_, err = c.Response().Write([]byte("]"))
+	if err != nil {
+		return err
+	}
 	c.Response().Flush()
 	return nil
 }
+

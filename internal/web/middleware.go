@@ -6,10 +6,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/web/middlewares"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/web/middlewares"
 )
 
 type Middleware struct {
@@ -25,10 +26,7 @@ type Middleware struct {
 func NewMiddleware(lc fx.Lifecycle, handler *Handler, e *echo.Echo, env *conf.Env) *Middleware {
 	skipper := func(c echo.Context) bool {
 		// don't secure health endpoints
-		if strings.HasPrefix(c.Request().URL.Path, "/health") {
-			return true
-		}
-		return false
+		return strings.HasPrefix(c.Request().URL.Path, "/health")
 	}
 
 	mw := &Middleware{

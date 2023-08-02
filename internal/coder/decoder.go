@@ -8,8 +8,9 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
 	"github.com/jhump/protoreflect/dynamic"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 	"github.com/riferrei/srclient"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
 type Decoder interface {
@@ -38,7 +39,6 @@ func NewDecoder(config *conf.ConsumerConfig) (Decoder, error) {
 				md, err := loadMessageDescriptor(config.ProtobufSchema)
 				if err != nil {
 					return nil, err
-
 				}
 				return GenericProtoDecoder{messageDescriptor: md}, nil
 			}
@@ -84,9 +84,8 @@ type GenericProtoDecoder struct {
 }
 
 func loadMessageDescriptor(protobufSchemaConf *conf.ProtobufSchema) (*desc.MessageDescriptor, error) {
-
 	var protoParser protoparse.Parser
-	//TODO: set protoParser.Accessor instead of importpaths - a function that can produce io.Readers from ConsumerConfig.
+	// TODO: set protoParser.Accessor instead of importpaths - a function that can produce io.Readers from ConsumerConfig.
 	protoParser.ImportPaths = append(protoParser.ImportPaths, protobufSchemaConf.Path)
 	fds, err := protoParser.ParseFiles(protobufSchemaConf.FileName)
 	if err != nil {

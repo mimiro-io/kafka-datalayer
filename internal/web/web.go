@@ -32,8 +32,7 @@ func NewWebServer(lc fx.Lifecycle, env *conf.Env, logger *zap.SugaredLogger, sta
 	}
 
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-
+		OnStart: func(_ context.Context) error {
 			l.Infof("Starting Http server on :%s", env.Port)
 			go func() {
 				_ = e.Start(":" + env.Port)
@@ -43,7 +42,6 @@ func NewWebServer(lc fx.Lifecycle, env *conf.Env, logger *zap.SugaredLogger, sta
 		OnStop: func(ctx context.Context) error {
 			l.Infof("Shutting down Http server")
 			return e.Shutdown(ctx)
-
 		},
 	})
 
@@ -54,7 +52,6 @@ func Register(e *echo.Echo, env *conf.Env) {
 	// this sets up the main chain
 	env.Logger.Infof("Registering endpoints")
 	e.GET("/health", health)
-
 }
 
 func health(c echo.Context) error {

@@ -1,7 +1,7 @@
 package conf
 
 type KafkaConfig struct {
-	Id        string           `json:"id"`
+	ID        string           `json:"id"`
 	Producers []ProducerConfig `json:"producers"`
 	Consumers []ConsumerConfig `json:"consumers"`
 }
@@ -37,13 +37,13 @@ type ProtobufSchema struct {
 type ConsumerConfig struct {
 	Dataset             string          `json:"dataset"`
 	Topic               string          `json:"topic"`
-	GroupId             string          `json:"groupId"`
+	GroupID             string          `json:"groupId"`
 	ValueDecoder        *string         `json:"valueDecoder"`
 	Position            string          `json:"position"`
 	NameSpace           string          `json:"nameSpace"`
 	BaseNameSpace       string          `json:"baseNameSpace"`
 	IncludeHeaders      bool            `json:"includeHeaders"`
-	EntityIdConstructor string          `json:"entityIdConstructor"`
+	EntityIDConstructor string          `json:"entityIdConstructor"`
 	Types               []string        `json:"types"`
 	FieldMappings       []*FieldMapping `json:"fieldMappings"`
 	SchemaRegistry      *SchemaRegistry `json:"schemaRegistry"`
@@ -54,7 +54,7 @@ type FieldMapping struct {
 	Path              string `json:"path"`
 	FieldName         string `json:"fieldName"`
 	PropertyName      string `json:"propertyName"`
-	IsIdField         bool   `json:"isIdField"`
+	IsIDField         bool   `json:"isIdField"`
 	IsDeletedField    bool   `json:"isDeletedField"`
 	IsReference       bool   `json:"isReference"`
 	ReferenceTemplate string `json:"referenceTemplate"`

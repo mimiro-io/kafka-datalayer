@@ -8,6 +8,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/franela/goblin"
+
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
@@ -15,7 +16,6 @@ func TestDecoder(t *testing.T) {
 	g := goblin.Goblin(t)
 	g.Describe("A protobuf Decoder", func() {
 		g.It("should covert a protobuf message to json text using generic protobuf Decoder", func() {
-
 			var expected map[string]interface{}
 			err := json.Unmarshal([]byte(`{"name": "test",
 									"age": 2,
@@ -55,7 +55,7 @@ func TestDecoder(t *testing.T) {
 			})
 			g.Assert(err).IsNil()
 			resMap := map[string]interface{}{}
-			err = json.Unmarshal(result, &resMap)
+			_ = json.Unmarshal(result, &resMap)
 
 			g.Assert(resMap).Eql(expected)
 		})
