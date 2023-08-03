@@ -15,7 +15,6 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
@@ -23,7 +22,6 @@ import (
 )
 
 type Consumers struct {
-	env              *conf.Env
 	logger           *zap.SugaredLogger
 	adminClient      *kafka.AdminClient
 	bootstrapServers []string
@@ -46,10 +44,9 @@ type runState struct {
 	isCancelled bool
 }
 
-func NewConsumers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManager, statsd statsd.ClientInterface) (*Consumers, error) {
+func NewConsumers(env *conf.Env, mngr *conf.ConfigurationManager, logger *zap.SugaredLogger, statsd statsd.ClientInterface) (*Consumers, error) {
 	config := &Consumers{
-		env:              env,
-		logger:           env.Logger.Named("consumers"),
+		logger:           logger.Named("consumers"),
 		bootstrapServers: env.KafkaBrokers,
 		mngr:             mngr,
 		statsd:           statsd,
@@ -60,17 +57,12 @@ func NewConsumers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManage
 		return nil, err
 	}
 	config.adminClient = a
-	lc.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			config.logger.Info("Registering Kafka consumers")
-			config.logger.Info(env.KafkaBrokers)
-			for _, c := range mngr.Datalayer.Consumers {
-				config.add(c)
-			}
-			return nil
-		},
-		OnStop: nil,
-	})
+
+	config.logger.Info("Registering Kafka consumers")
+	config.logger.Info(env.KafkaBrokers)
+	for _, c := range mngr.Datalayer.Consumers {
+		config.add(c)
+	}
 
 	return config, nil
 }
@@ -117,7 +109,6 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, onEntity func(*egd
 	}
 
 	tags := []string{
-		fmt.Sprintf("application:%s", consumers.env.ServiceName),
 		fmt.Sprintf("topic:%s", config.Topic),
 	}
 
@@ -374,4 +365,3 @@ func decodeSince(since string) map[int32]int64 {
 	}
 	return paritionOffsets
 }
-

@@ -20,9 +20,12 @@ import (
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"go.uber.org/fx"
+	"go.uber.org/zap"
 
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/app"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
+	kafka2 "github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/kafka"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/security"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/web"
 )
 
 type Foo struct{}
@@ -34,10 +37,10 @@ func (f Foo) Accept(log testcontainers.Log) {
 func TestLayer(t *testing.T) {
 	g := goblin.Goblin(t)
 	g.Describe("The layer API", func() {
-		var fxApp *fx.App
 		layerUrl := "http://localhost:19899/datasets"
 		var redPanda string
 		var kafkaContainer testcontainers.Container
+		var webServer *web.Server
 		g.Before(func() {
 			resourcesTestPath := "./resources/test"
 			overridePath := os.Getenv("RESOURCES_TEST_DIR")
@@ -112,8 +115,18 @@ func TestLayer(t *testing.T) {
 			patchTestConfig(resourcesTestPath, addr)
 			os.Setenv("CONFIG_LOCATION", "file:///tmp/test-config-patched.json")
 
-			fxApp = app.Wire()
-			err = fxApp.Start(context.Background())
+			logger := zap.NewNop().Sugar()
+			envConf := conf.NewEnv()
+			statsdClient, _ := conf.NewStatsd(envConf)
+			providers := security.NewTokenProviders(logger)
+
+			mngr := conf.NewConfigurationManager(envConf, providers)
+			kafkaService, _ := kafka2.NewService(envConf, logger, mngr, statsdClient)
+			webServer, err = web.NewWebServer(
+				envConf,
+				kafkaService,
+				logger,
+				statsdClient)
 			if err != nil {
 				t.Errorf("Failed when running fx: %v", err)
 				t.FailNow()
@@ -121,7 +134,7 @@ func TestLayer(t *testing.T) {
 		})
 		g.After(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			fxApp.Stop(ctx)
+			webServer.Shutdown(ctx)
 			cancel()
 			kafkaContainer.Terminate(ctx)
 		})

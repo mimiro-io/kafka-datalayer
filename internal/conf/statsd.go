@@ -13,6 +13,7 @@ func NewStatsd(env *Env) (statsd.ClientInterface, error) {
 		optNs := statsd.WithNamespace(service)
 		optTags := statsd.WithTags([]string{
 			"service:" + env.ServiceName,
+			"application:" + env.ServiceName,
 		})
 		env.Logger.Info("Statsd is configured on: ", viper.GetViper().GetString("DD_AGENT_HOST"))
 		c, err := statsd.New(viper.GetViper().GetString("DD_AGENT_HOST"), optNs, optTags)

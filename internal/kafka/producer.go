@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/go-uuid"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 	kgo "github.com/segmentio/kafka-go"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
@@ -20,7 +19,6 @@ import (
 
 type Producers struct {
 	log              *zap.SugaredLogger
-	env              *conf.Env
 	bootstrapServers []string
 	adminClient      *kafka.AdminClient
 	producers        map[string]*kgo.Writer
@@ -28,10 +26,9 @@ type Producers struct {
 	statsd           statsd.ClientInterface
 }
 
-func NewProducers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManager, statsd statsd.ClientInterface) (*Producers, error) {
+func NewProducers(env *conf.Env, logger *zap.SugaredLogger, mngr *conf.ConfigurationManager, statsd statsd.ClientInterface) (*Producers, error) {
 	producers := &Producers{
-		log:              env.Logger.Named("producers"),
-		env:              env,
+		log:              logger.Named("producers"),
 		bootstrapServers: env.KafkaBrokers,
 		producers:        make(map[string]*kgo.Writer),
 		mngr:             mngr,
@@ -51,20 +48,13 @@ func NewProducers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManage
 	}
 	producers.adminClient = a
 
-	lc.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			mngr.AddConfigUpdateListener(onUpdate)
-			if mngr.Datalayer.Producers != nil && len(mngr.Datalayer.Producers) > 0 {
-				return producers.initTopics(mngr.Datalayer.Producers)
-			}
-			return nil
-		},
-		OnStop: func(_ context.Context) error {
-			producers.log.Info("Stopping admin client")
-			a.Close()
-			return nil
-		},
-	})
+	mngr.AddConfigUpdateListener(onUpdate)
+	if mngr.Datalayer.Producers != nil && len(mngr.Datalayer.Producers) > 0 {
+		err := producers.initTopics(mngr.Datalayer.Producers)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return producers, nil
 }
@@ -109,7 +99,6 @@ func (producers *Producers) ProduceEntities(config *conf.ProducerConfig, entitie
 	}
 
 	tags := []string{
-		fmt.Sprintf("application:%s", producers.env.ServiceName),
 		fmt.Sprintf("topic:%s", config.Topic),
 	}
 

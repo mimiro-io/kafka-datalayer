@@ -6,52 +6,53 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/labstack/echo/v4"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/kafka"
 )
 
-type Handler struct {
-	Logger       *zap.SugaredLogger
-	Port         string
-	StatsDClient statsd.ClientInterface
-	Profile      string
+type Server struct {
+	logger       *zap.SugaredLogger
+	statsdClient statsd.ClientInterface
+	e            *echo.Echo
+	kafka        *kafka.Service
 }
 
-func NewWebServer(lc fx.Lifecycle, env *conf.Env, logger *zap.SugaredLogger, statsd statsd.ClientInterface) (*Handler, *echo.Echo) {
+func NewWebServer(env *conf.Env,
+	k *kafka.Service,
+	logger *zap.SugaredLogger,
+	statsd statsd.ClientInterface) (*Server, error) {
+	port := env.Port
 	e := echo.New()
 	e.HideBanner = true
 
+	mw := NewMiddleware(logger, statsd, env)
+	e.Use(mw...)
+
 	l := logger.Named("web")
-
-	handler := &Handler{
-		Logger:       l,
-		Port:         env.Port,
-		StatsDClient: statsd,
-		Profile:      env.Env,
+	s := &Server{
+		logger:       l,
+		statsdClient: statsd,
+		e:            e,
+		kafka:        k,
 	}
+	e.GET("/health", health)
+	e.POST("/datasets/:dataset/entities", s.produce)
+	e.GET("/datasets/:dataset/entities", s.consume)
+	e.GET("/datasets/:dataset/changes", s.consume)
+	e.GET("/datasets", s.listDatasetsHandler)
 
-	lc.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			l.Infof("Starting Http server on :%s", env.Port)
-			go func() {
-				_ = e.Start(":" + env.Port)
-			}()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			l.Infof("Shutting down Http server")
-			return e.Shutdown(ctx)
-		},
-	})
+	l.Infof("Starting Http server on :%s", port)
+	go func() {
+		_ = e.Start(":" + port)
+	}()
 
-	return handler, e
+	return s, nil
 }
 
-func Register(e *echo.Echo, env *conf.Env) {
-	// this sets up the main chain
-	env.Logger.Infof("Registering endpoints")
-	e.GET("/health", health)
+func (w *Server) Shutdown(ctx context.Context) error {
+	return w.e.Shutdown(ctx)
 }
 
 func health(c echo.Context) error {

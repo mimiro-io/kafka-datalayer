@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/fx"
-
 	"github.com/bamzi/jobrunner"
 	"github.com/gojektech/heimdall/v6/httpclient"
 	"go.uber.org/zap"
@@ -33,7 +31,7 @@ type State struct {
 	Digest    [16]byte
 }
 
-func NewConfigurationManager(_ fx.Lifecycle, env *Env, providers *security.TokenProviders) *ConfigurationManager {
+func NewConfigurationManager(env *Env, providers *security.TokenProviders) *ConfigurationManager {
 	config := &ConfigurationManager{
 		configLocation:  env.ConfigLocation,
 		refreshInterval: env.RefreshInterval,

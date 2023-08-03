@@ -1,86 +1,54 @@
 package web
 
 import (
-	"context"
 	"strings"
 
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/web/middlewares"
 )
 
-type Middleware struct {
-	logger     echo.MiddlewareFunc
-	cors       echo.MiddlewareFunc
-	jwt        echo.MiddlewareFunc
-	recover    echo.MiddlewareFunc
-	authorizer func(logger *zap.SugaredLogger, scopes ...string) echo.MiddlewareFunc
-	handler    *Handler
-	env        *conf.Env
-}
+type Middleware []echo.MiddlewareFunc
 
-func NewMiddleware(lc fx.Lifecycle, handler *Handler, e *echo.Echo, env *conf.Env) *Middleware {
+func NewMiddleware(logger *zap.SugaredLogger, statsdClient statsd.ClientInterface, env *conf.Env) Middleware {
 	skipper := func(c echo.Context) bool {
 		// don't secure health endpoints
 		return strings.HasPrefix(c.Request().URL.Path, "/health")
 	}
 
-	mw := &Middleware{
-		logger:     setupLogger(handler, skipper),
-		cors:       setupCors(),
-		jwt:        setupJWT(env, skipper),
-		recover:    setupRecovery(handler),
-		authorizer: middlewares.Authorize,
-		handler:    handler,
-		env:        env,
-	}
+	m := Middleware{setupLogger(logger, statsdClient, skipper)}
 
-	if env.Auth.Middleware == "noop" { // don't enable local security if noop is enabled
-		handler.Logger.Infof("WARNING: Setting NoOp Authorizer")
-		mw.authorizer = middlewares.NoOpAuthorizer
-	}
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			mw.configure(e)
-			return nil
-		},
-	})
-
-	return mw
-}
-
-func (middleware *Middleware) configure(e *echo.Echo) {
-	e.Use(middleware.logger)
-	if middleware.env.Auth.Middleware == "noop" { // don't enable local security (yet)
-		middleware.handler.Logger.Infof("WARNING: Security is disabled")
+	if env.Auth.Middleware == "noop" { // don't enable local security (yet)
+		logger.Infof("WARNING: Security is disabled")
 	} else {
-		e.Use(middleware.cors)
-		e.Use(middleware.jwt)
+		m = append(m, setupCors())
+		m = append(m, setupJWT(env.Auth, skipper))
 	}
-	e.Use(middleware.recover)
+	m = append(m, setupRecovery(logger))
+	return m
 }
 
-func setupJWT(env *conf.Env, skipper func(c echo.Context) bool) echo.MiddlewareFunc {
+func setupJWT(conf *conf.AuthConfig, skipper func(c echo.Context) bool) echo.MiddlewareFunc {
 	return middlewares.JWTHandler(&middlewares.Auth0Config{
 		Skipper:       skipper,
-		Audience:      env.Auth.Audience,
-		Issuer:        env.Auth.Issuer,
-		AudienceAuth0: env.Auth.AudienceAuth0,
-		IssuerAuth0:   env.Auth.IssuerAuth0,
-		Wellknown:     env.Auth.WellKnown,
+		Audience:      conf.Audience,
+		Issuer:        conf.Issuer,
+		AudienceAuth0: conf.AudienceAuth0,
+		IssuerAuth0:   conf.IssuerAuth0,
+		Wellknown:     conf.WellKnown,
 	})
 }
 
-func setupLogger(handler *Handler, skipper func(c echo.Context) bool) echo.MiddlewareFunc {
+func setupLogger(logger *zap.SugaredLogger, statsdClient statsd.ClientInterface,
+	skipper func(c echo.Context) bool) echo.MiddlewareFunc {
 	return middlewares.LoggerFilter(middlewares.LoggerConfig{
 		Skipper:      skipper,
-		Logger:       handler.Logger.Desugar(),
-		StatsdClient: handler.StatsDClient,
+		Logger:       logger.Desugar(),
+		StatsdClient: statsdClient,
 	})
 }
 
@@ -91,6 +59,6 @@ func setupCors() echo.MiddlewareFunc {
 	})
 }
 
-func setupRecovery(handler *Handler) echo.MiddlewareFunc {
-	return middlewares.RecoverWithConfig(middlewares.DefaultRecoverConfig, handler.Logger)
+func setupRecovery(logger *zap.SugaredLogger) echo.MiddlewareFunc {
+	return middlewares.RecoverWithConfig(middlewares.DefaultRecoverConfig, logger)
 }

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -9,35 +8,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
-	"go.uber.org/fx"
-	"go.uber.org/zap"
 
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/kafka"
 )
 
-type consumerHandler struct {
-	logger    *zap.SugaredLogger
-	consumers *kafka.Consumers
-}
-
-func NewConsumerHandler(lc fx.Lifecycle, e *echo.Echo, logger *zap.SugaredLogger, mw *Middleware, consumers *kafka.Consumers) {
-	log := logger.Named("web")
-
-	handler := &consumerHandler{
-		logger:    log,
-		consumers: consumers,
-	}
-	lc.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			e.GET("/datasets/:dataset/entities", handler.consume, mw.authorizer(log, "datahub:r"))
-			e.GET("/datasets/:dataset/changes", handler.consume, mw.authorizer(log, "datahub:r"))
-
-			return nil
-		},
-	})
-}
-
-func (handler *consumerHandler) consume(c echo.Context) error {
+func (w *Server) consume(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	limit := c.QueryParam("limit")
 	var l int64 = -1
@@ -48,7 +23,7 @@ func (handler *consumerHandler) consume(c echo.Context) error {
 	since := c.QueryParam("since")
 
 	// check dataset exists
-	if !handler.consumers.DoesDatasetExist(datasetName) {
+	if !w.kafka.Consumers.DoesDatasetExist(datasetName) {
 		return c.NoContent(http.StatusNotFound)
 	}
 
@@ -62,7 +37,7 @@ func (handler *consumerHandler) consume(c echo.Context) error {
 	}
 
 	// make and send context as the first object
-	ctx := handler.consumers.GetContext(datasetName)
+	ctx := w.kafka.Consumers.GetContext(datasetName)
 
 	_ = enc.Encode(ctx)
 
@@ -71,7 +46,7 @@ func (handler *consumerHandler) consume(c echo.Context) error {
 		Since:       since,
 		Limit:       l,
 	}
-	err := handler.consumers.ChangeSet(request, func(entity *egdm.Entity) error {
+	err := w.kafka.Consumers.ChangeSet(request, func(entity *egdm.Entity) error {
 		_, err := c.Response().Write([]byte(","))
 		if err != nil {
 			return err
@@ -95,7 +70,7 @@ func (handler *consumerHandler) consume(c echo.Context) error {
 		return nil
 	})
 	if err != nil {
-		handler.logger.Warn(err)
+		w.logger.Warn(err)
 	}
 
 	_, err = c.Response().Write([]byte("]"))
@@ -105,4 +80,3 @@ func (handler *consumerHandler) consume(c echo.Context) error {
 	c.Response().Flush()
 	return nil
 }
-
