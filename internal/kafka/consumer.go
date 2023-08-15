@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ type Consumers struct {
 	mngr             *conf.ConfigurationManager
 	statsd           statsd.ClientInterface
 	running          map[string]*runState
+	lock             *sync.RWMutex
 }
 
 type DatasetRequest struct {
@@ -53,6 +55,7 @@ func NewConsumers(lc fx.Lifecycle, env *conf.Env, mngr *conf.ConfigurationManage
 		mngr:             mngr,
 		statsd:           statsd,
 		running:          make(map[string]*runState),
+		lock:             &sync.RWMutex{},
 	}
 	a, err := kafka.NewAdminClient(&kafka.ConfigMap{"bootstrap.servers": strings.Join(config.bootstrapServers, ",")})
 	if err != nil {
@@ -120,8 +123,10 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 		fmt.Sprintf("topic:%s", config.Topic),
 	}
 
-	// so we should not need to lock anything here, there should be no 2 requests at the same time
+	// if multiple requests are made for the same groupId and topic, we need to make sure only one is running
+	// at a time
 	topicGroup := fmt.Sprintf("%s-%s", config.Topic, config.GroupId)
+	consumers.lock.RLock()
 	if cons, ok := consumers.running[topicGroup]; ok {
 		// so, this means something is still running, so cancel it, and reset
 		cons.cancel()
@@ -129,6 +134,7 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 			_ = cons.consumer.Close() // this should hopefully allow us to clean exit the previous consumer if still running
 		}
 	}
+	consumers.lock.RUnlock()
 
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  strings.Join(consumers.bootstrapServers, ","),
@@ -153,7 +159,9 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 		decoder:     decoder,
 		isCancelled: false,
 	}
+	consumers.lock.Lock()
 	consumers.running[topicGroup] = state
+	consumers.lock.Unlock()
 
 	// clean up, but there is a chance that this is never run
 	defer func() {
@@ -163,7 +171,9 @@ func (consumers *Consumers) ChangeSet(request DatasetRequest, callBack func(*cod
 		state.cancel()
 		state.isCancelled = true
 
+		consumers.lock.Lock()
 		delete(consumers.running, topicGroup)
+		consumers.lock.Unlock()
 	}()
 
 	// so, if we get an offset, we need to reset the offsets now
