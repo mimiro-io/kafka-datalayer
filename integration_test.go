@@ -196,7 +196,7 @@ func TestLayer(t *testing.T) {
 			g.Assert(err).IsNil()
 			g.Assert(resp.StatusCode).Eql(200)
 			bodyBytes, _ := io.ReadAll(resp.Body)
-			g.Assert(len(bodyBytes)).Eql(217965, "no limit or since parameters should yield all 11000 entities")
+			g.Assert(len(bodyBytes)).Eql(217993, "no limit or since parameters should yield all 11000 entities")
 		})
 
 		g.It("Should expose json dataset with limit", func() {
@@ -213,8 +213,8 @@ func TestLayer(t *testing.T) {
 			var expected []map[string]interface{}
 			json.Unmarshal([]byte(`[{"id":"@context","namespaces":{"ns0":"http://data.example.com/cities/places/","rdf":"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}}
         ,{"id":"http://data.example.com/cities/city/City-0","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3000"},"props":{"ns0:name":"City-0","ns0:postCode":3000}}
-        ,{"id":"http://data.example.com/cities/city/City-1","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3001"},"props":{"ns0:name":"City-1","ns0:postCode":3001}}
-        ,{"id":"http://data.example.com/cities/city/City-2","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3002"},"props":{"ns0:name":"City-2","ns0:postCode":3002}}
+        ,{"id":"http://data.example.com/cities/city/City-5","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3005"},"props":{"ns0:name":"City-5","ns0:postCode":3005}}
+        ,{"id":"http://data.example.com/cities/city/City-6","deleted":false,"refs":{"ns0:postCodeRef":"http://data.example.com/cities/post-code/3006"},"props":{"ns0:name":"City-6","ns0:postCode":3006}}
         ,{"id":"@continuation","token":"eyIwIjoyfQ=="}
         ]`), &expected)
 			g.Assert(entities).Eql(expected)
