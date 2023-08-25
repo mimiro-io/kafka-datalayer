@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 	"github.com/tidwall/gjson"
+
+	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
 type EntityEncoder struct {
@@ -78,7 +79,7 @@ func (encoder EntityEncoder) flatten(prefix string, k string, v interface{}, js 
 			switch ival := i.(type) {
 			case map[string]interface{}:
 				for k2, v2 := range ival {
-					encoder.flatten(fmt.Sprintf("%v%v[%v].", prefix, k, idx), k2, v2, js, entity, key)
+					encoder.flatten(fmt.Sprintf("%v%v.%v.", prefix, k, idx), k2, v2, js, entity, key)
 				}
 			default:
 				objArray = false

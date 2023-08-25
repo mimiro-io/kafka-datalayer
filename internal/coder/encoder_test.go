@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/franela/goblin"
+
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
 )
 
@@ -117,10 +118,10 @@ func TestEncoder(t *testing.T) {
 				g.Assert(res.Properties["ns0:s1"]).Eql("sv1")
 				g.Assert(res.Properties["ns0:o1.n1"]).Eql(1.0)
 				g.Assert(res.Properties["ns0:o1.a1"]).Eql([]string{"av1", "av2"})
-				g.Assert(res.Properties["ns0:o1.o2.a2[0].n2"]).Eql(2.0)
-				g.Assert(res.Properties["ns0:o1.o2.a2[1].s2"]).Eql("sv2")
-				g.Assert(res.Properties["ns0:o1.o2.a2[2].a3"]).Eql([]float64{3, 4})
-				g.Assert(res.Properties["ns0:o1.o2.a2[3].a4"]).Eql([]bool{true, false})
+				g.Assert(res.Properties["ns0:o1.o2.a2.0.n2"]).Eql(2.0)
+				g.Assert(res.Properties["ns0:o1.o2.a2.1.s2"]).Eql("sv2")
+				g.Assert(res.Properties["ns0:o1.o2.a2.2.a3"]).Eql([]float64{3, 4})
+				g.Assert(res.Properties["ns0:o1.o2.a2.3.a4"]).Eql([]bool{true, false})
 			})
 		})
 	})
