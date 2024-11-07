@@ -1,5 +1,5 @@
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-FROM --platform=linux/amd64 golang:1.22.2 as builder
+FROM --platform=linux/amd64 golang:1.23.2 as builder
 
 RUN apt-get update && \
     apt-get install git ca-certificates gcc -y && \
