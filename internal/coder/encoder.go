@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/tidwall/gjson"
 
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/hashicorp/go-uuid"
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/coder"
 	"github.com/mimiro.io/kafka-datalayer/kafka-datalayer/internal/conf"
