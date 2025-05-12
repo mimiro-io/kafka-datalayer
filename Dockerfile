@@ -1,5 +1,5 @@
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-FROM --platform=linux/amd64 golang:1.23.2 as builder
+FROM golang:1.23.2 as builder
 
 RUN apt-get update && \
     apt-get install git ca-certificates gcc -y && \
@@ -21,7 +21,7 @@ COPY resources ./resources
 
 # Compile binary
 FROM src AS build
-RUN GOOS=linux GOARCH=amd64 go build -tags netgo --ldflags "-extldflags -static" -o server cmd/kafkalayer/main.go
+RUN GOOS=linux go build -tags netgo --ldflags "-extldflags -static" -o server cmd/kafkalayer/main.go
 # if it compiles, run unit tests
 RUN go vet ./... && go test -v ./...
 
