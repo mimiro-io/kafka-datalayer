@@ -3,7 +3,7 @@ package middlewares
 import (
 	"encoding/json"
 	"errors"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"strings"
 	"time"
@@ -34,11 +34,36 @@ type CustomClaims struct {
 	Scope string `json:"scope"`
 	Gty   string `json:"gty"`
 	Adm   bool   `json:"adm"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 func (claims CustomClaims) scopes() []string {
 	return strings.Split(claims.Scope, ",")
+}
+
+// verifyAudience reports whether expected is among the token's audiences.
+// An absent audience is treated as valid (audience is not required), matching
+// the previous jwt v3 VerifyAudience(_, false) behaviour.
+func verifyAudience(claims *CustomClaims, expected string) bool {
+	if len(claims.Audience) == 0 {
+		return true
+	}
+	for _, aud := range claims.Audience {
+		if aud == expected {
+			return true
+		}
+	}
+	return false
+}
+
+// verifyIssuer reports whether the token issuer matches expected. An absent
+// issuer is treated as valid, matching the previous jwt v3
+// VerifyIssuer(_, false) behaviour.
+func verifyIssuer(claims *CustomClaims, expected string) bool {
+	if claims.Issuer == "" {
+		return true
+	}
+	return claims.Issuer == expected
 }
 
 type Response struct {
@@ -134,13 +159,11 @@ func JWTHandler(config *Auth0Config) echo.MiddlewareFunc {
 				issuer = config.Issuer
 			}
 
-			checkAud := claims.VerifyAudience(audience, false)
-			if !checkAud {
+			if !verifyAudience(claims, audience) {
 				err = errors.New("invalid audience")
 			}
 
-			checkIss := claims.VerifyIssuer(issuer, false)
-			if !checkIss {
+			if !verifyIssuer(claims, issuer) {
 				err = errors.New("invalid issuer")
 			}
 
