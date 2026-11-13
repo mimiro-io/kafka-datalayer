@@ -1,4 +1,4 @@
-FROM node:16-alpine
+FROM node:24-alpine
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -18,4 +18,5 @@ COPY protoschema/*.proto ./protoschema/
 COPY avroschema/*.avsc ./avroschema/
 
 EXPOSE 8080
+USER node
 CMD [ "node", "producer.js" ]
