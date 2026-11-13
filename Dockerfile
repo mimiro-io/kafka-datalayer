@@ -1,5 +1,5 @@
 
-FROM golang:1.25 AS builder
+FROM golang:1.27.4 AS builder
 
 WORKDIR /app
 
@@ -29,5 +29,7 @@ FROM gcr.io/distroless/static-debian12:nonroot AS final
 COPY --from=build /app/server .
 
 EXPOSE 8080
+
+USER nonroot
 
 CMD ["./server"]

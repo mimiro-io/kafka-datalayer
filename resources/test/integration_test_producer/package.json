@@ -7,9 +7,9 @@
         "generate-wire-msg": "node wire-person-write.js"
     },
     "dependencies": {
-        "@kafkajs/confluent-schema-registry": "^3.2.1",
+        "@kafkajs/confluent-schema-registry": "^4.1.0",
         "avro-js": "^1.11.0",
         "kafkajs": "^1.16.0",
-        "protobufjs": "^6.11.2"
+        "protobufjs": "^7.6.6"
     }
 }
